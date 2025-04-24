@@ -33,11 +33,11 @@ const Chat = () => {
           await saveKeys(newKeyPair);
           keys = newKeyPair;
         } else {
-          console.log("Clés récupérées du stockage");
+          console.log("Clés récupérées du stockage:", keys);
         }
         
         setKeyPair(keys);
-        console.log("Clés définies dans l'état");
+        console.log("Clés définies dans l'état:", keys);
         
         // Connexion au serveur
         setConnectionStatus('connecting');
@@ -46,7 +46,7 @@ const Chat = () => {
           reconnectionAttempts: 10,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
-          timeout: 10000
+          timeout: 20000
         });
         
         socketRef.current = newSocket;
@@ -76,8 +76,8 @@ const Chat = () => {
         });
         
         newSocket.on('message', (data) => {
-          console.log('Message reçu:', data);
-          handleIncomingMessage(data);
+          console.log('Message REÇU du serveur:', data);
+          handleIncomingMessage(data, keys);
         });
         
         newSocket.on('user_joined', (data) => {
@@ -137,20 +137,27 @@ const Chat = () => {
   };
 
   // Gestion des messages entrants
-  const handleIncomingMessage = async (data) => {
+  const handleIncomingMessage = async (data, currentKeys) => {
     console.log(`Traitement du message: de=${data.from}, à=${data.to}, username=${username}`);
+    const keys = currentKeys || keyPair;
+    
+    if (!keys) {
+      console.error("Pas de clés disponibles pour traiter le message");
+      return;
+    }
     
     try {
       if (data.to === username) {
         // C'est un message que je reçois
-        console.log('Déchiffrement du message entrant');
+        console.log('Je suis le destinataire, déchiffrement du message entrant');
         let decryptedContent;
         
         try {
-          decryptedContent = await decryptMessage(keyPair.privateKey, data.content);
+          // Utiliser la clé privée pour déchiffrer
+          decryptedContent = await decryptMessage(keys.privateKey, data.content);
         } catch (err) {
           console.error('Erreur de déchiffrement, utilisation du contenu brut:', err);
-          decryptedContent = "Impossible de déchiffrer le message";
+          decryptedContent = "[Message chiffré]";
         }
         
         console.log('Message déchiffré:', decryptedContent);
@@ -226,12 +233,15 @@ const Chat = () => {
       console.log(`Envoi d'un message à ${selectedUser}: ${inputMessage}`);
       
       try {
+        // Récupérer la clé publique du destinataire
         const recipientPublicKey = await importPublicKey(users[selectedUser].publicKey);
-        console.log('Clé publique du destinataire importée');
+        console.log('Clé publique du destinataire importée:', recipientPublicKey);
         
+        // Chiffrer le message
         const encryptedContent = await encryptMessage(recipientPublicKey, inputMessage);
-        console.log('Message chiffré');
+        console.log('Message chiffré:', encryptedContent);
         
+        // Préparer le message à envoyer
         const messageData = {
           from: username,
           to: selectedUser,
@@ -240,7 +250,7 @@ const Chat = () => {
           localContent: inputMessage // Version non chiffrée pour l'afficheur
         };
         
-        console.log('Émission du message via WebSocket');
+        console.log('Émission du message via WebSocket:', messageData);
         socketRef.current.emit('message', messageData);
         
         // Ajouter le message à la liste des messages immédiatement pour une UX réactive
