@@ -138,6 +138,17 @@ const Chat = () => {
 
   // Gestion des messages entrants
   const handleIncomingMessage = async (data, currentKeys) => {
+// Ajouter au début de la fonction handleIncomingMessage
+console.log("========= MESSAGE DATA =========");
+console.log(JSON.stringify(data, null, 2));
+console.log("===============================");
+
+// Ajouter après le try/catch de déchiffrement
+console.log("========= DÉCHIFFREMENT RÉSULTAT =========");
+let decryptedContent = "non déchiffré";
+console.log("Depuis:", data.from, "À:", data.to, "Moi:", username);
+console.log("Décrypté:", decryptedContent);
+console.log("==========================================");
     console.log(`Traitement du message: de=${data.from}, à=${data.to}, username=${username}`);
     const keys = currentKeys || keyPair;
     
@@ -155,6 +166,7 @@ const Chat = () => {
         try {
           // Utiliser la clé privée pour déchiffrer
           decryptedContent = await decryptMessage(keys.privateKey, data.content);
+console.log("Déchiffrement terminé avec succès");
         } catch (err) {
           console.error('Erreur de déchiffrement, utilisation du contenu brut:', err);
           decryptedContent = "[Message chiffré]";

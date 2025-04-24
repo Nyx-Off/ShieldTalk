@@ -43,11 +43,6 @@ const logActiveUsers = () => {
   console.log('===================================');
 };
 
-// Exportation pour commande externe
-exports.getUsers = () => {
-  return users;
-};
-
 // Gestion des websockets
 io.on('connection', (socket) => {
   console.log('Un utilisateur s\'est connecté', socket.id);
@@ -98,6 +93,55 @@ io.on('connection', (socket) => {
     logActiveUsers();
   });
   
+  // Transmission des messages
+
+      
+      console.log(`Message envoyé au socket ${targetSocketId}`);
+    } else {
+      console.log(`SocketId non trouvé pour ${data.to}`);
+    }
+    
+    // Réfléchir le message à l'expéditeur pour confirmation
+    console.log(`Réflexion du message à l'expéditeur ${data.from} (socketId: ${socket.id})`);
+    socket.emit('message', {
+      from: data.from,
+      to: data.to,
+      content: data.content,
+      localContent: data.localContent,
+      timestamp: data.timestamp
+    });
+  });
+  
+  // Déconnexion
+  socket.on('disconnect', () => {
+    const username = socketToUser[socket.id];
+    
+    if (username) {
+      console.log(`Utilisateur déconnecté: ${username} (socketId: ${socket.id})`);
+      
+      // Supprimer l'utilisateur
+      delete users[username];
+      delete socketToUser[socket.id];
+      
+      // Notifier les autres utilisateurs
+      io.emit('user_left', username);
+      
+      logActiveUsers();
+    } else {
+      console.log(`Socket déconnecté sans utilisateur associé: ${socket.id}`);
+    }
+  });
+  
+  // Ping pour garder la connexion active
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Serveur démarré sur le port ${PORT}`);
+});
   // Transmission des messages
   socket.on('message', (data) => {
     console.log(`Message de ${data.from} à ${data.to}`);
@@ -150,34 +194,3 @@ io.on('connection', (socket) => {
       timestamp: data.timestamp
     });
   });
-  
-  // Déconnexion
-  socket.on('disconnect', () => {
-    const username = socketToUser[socket.id];
-    
-    if (username) {
-      console.log(`Utilisateur déconnecté: ${username} (socketId: ${socket.id})`);
-      
-      // Supprimer l'utilisateur
-      delete users[username];
-      delete socketToUser[socket.id];
-      
-      // Notifier les autres utilisateurs
-      io.emit('user_left', username);
-      
-      logActiveUsers();
-    } else {
-      console.log(`Socket déconnecté sans utilisateur associé: ${socket.id}`);
-    }
-  });
-  
-  // Ping pour garder la connexion active
-  socket.on('ping', () => {
-    socket.emit('pong');
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
-});
