@@ -2,10 +2,14 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Servir les fichiers statiques du frontend
+app.use(express.static(path.join(__dirname, 'client/build')));
 
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -15,23 +19,74 @@ const io = socketIo(server, {
   }
 });
 
+// Stockage en mémoire des utilisateurs et de leurs clés publiques
+const users = {};
+
 // Routes de base
-app.get('/', (req, res) => {
-  res.send('Serveur ShieldTalk opérationnel');
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'Serveur ShieldTalk opérationnel' });
+});
+
+// Servir l'application React pour toutes les autres routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
 // Gestion des websockets
 io.on('connection', (socket) => {
   console.log('Un utilisateur s\'est connecté', socket.id);
   
-  socket.on('message', (data) => {
-    // Ici nous transmettons simplement le message chiffré
-    console.log('Message reçu', data);
-    io.emit('message', data);
+  // Enregistrement d'un nouvel utilisateur
+  socket.on('register_user', (data) => {
+    const { username, publicKey } = data;
+    
+    // Stockage des infos utilisateur
+    users[username] = {
+      socketId: socket.id,
+      publicKey: publicKey
+    };
+    
+    // Associer le socket à un username
+    socket.username = username;
+    
+    // Informer les autres utilisateurs
+    socket.broadcast.emit('user_joined', { username, publicKey });
+    
+    // Envoyer la liste des utilisateurs au nouvel arrivant
+    const userList = {};
+    for (const [name, userData] of Object.entries(users)) {
+      userList[name] = {
+        publicKey: userData.publicKey
+      };
+    }
+    socket.emit('user_list', userList);
+    
+    console.log(`Utilisateur enregistré: ${username}`);
   });
   
+  // Transmission des messages
+  socket.on('message', (data) => {
+    console.log(`Message de ${data.from} à ${data.to}`);
+    
+    // Transmettre le message uniquement au destinataire
+    const targetSocketId = users[data.to]?.socketId;
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('message', data);
+    }
+    
+    // Réfléchir le message à l'expéditeur pour confirmation
+    socket.emit('message', data);
+  });
+  
+  // Déconnexion
   socket.on('disconnect', () => {
-    console.log('Un utilisateur s\'est déconnecté');
+    if (socket.username && users[socket.username]) {
+      delete users[socket.username];
+      io.emit('user_left', socket.username);
+      console.log(`Utilisateur déconnecté: ${socket.username}`);
+    } else {
+      console.log('Un utilisateur anonyme s\'est déconnecté');
+    }
   });
 });
 

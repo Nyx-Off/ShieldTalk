@@ -1,0 +1,187 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.App-header {
+  background-color: #282c34;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+main {
+  flex: 1;
+  overflow: hidden;
+}
+
+footer {
+  background-color: #f5f5f5;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Chat Component Styles */
+.chat-container {
+  display: flex;
+  height: 100%;
+}
+
+.sidebar {
+  width: 250px;
+  border-right: 1px solid #ddd;
+  background-color: #f9f9f9;
+  overflow-y: auto;
+}
+
+.sidebar h2 {
+  padding: 1rem;
+  margin: 0;
+  font-size: 1.2rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.user-list li {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.user-list li:hover {
+  background-color: #f0f0f0;
+}
+
+.user-list li.selected {
+  background-color: #e6f7ff;
+  border-right: 3px solid #1890ff;
+}
+
+.chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  padding: 1rem;
+  border-bottom: 1px solid #ddd;
+  font-weight: bold;
+}
+
+.messages {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 70%;
+  margin-bottom: 1rem;
+  padding: 0.7rem;
+  border-radius: 8px;
+}
+
+.message.incoming {
+  align-self: flex-start;
+  background-color: #f0f0f0;
+}
+
+.message.outgoing {
+  align-self: flex-end;
+  background-color: #e6f7ff;
+}
+
+.message .content {
+  margin-bottom: 0.3rem;
+}
+
+.message .timestamp {
+  font-size: 0.7rem;
+  color: #999;
+  text-align: right;
+}
+
+.message-form {
+  display: flex;
+  padding: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.message-form input {
+  flex: 1;
+  padding: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.message-form button {
+  margin-left: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  background-color: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.message-form button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.username-form {
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.username-form h2 {
+  margin-top: 0;
+}
+
+.username-form input {
+  width: 100%;
+  padding: 0.8rem;
+  margin: 1rem 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.username-form button {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.loading, .error {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: #ff4d4f;
+}

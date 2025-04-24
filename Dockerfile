@@ -12,6 +12,14 @@ RUN npm install
 # Copie du reste du code
 COPY . .
 
+# Construction du frontend
+WORKDIR /app/client
+RUN npm install
+RUN npm run build
+
+# Retour au répertoire racine
+WORKDIR /app
+
 # Exposition du port
 EXPOSE 3000
 
