@@ -1,45 +1,37 @@
-// Version simplifiée qui fonctionne à coup sûr
+// Version ultra-simplifiée pour garantir le fonctionnement
 import CryptoJS from 'crypto-js';
 
 // Générer une paire de clés
 export const generateKeyPair = async () => {
-  try {
-    // Une seule clé pour tout faire (version simplifiée)
-    const secretKey = CryptoJS.lib.WordArray.random(32).toString();
-    
-    console.log('Clé secrète générée (version simplifiée)');
-    
-    return {
-      privateKey: secretKey,
-      publicKey: secretKey
-    };
-  } catch (error) {
-    console.error('Erreur lors de la génération des clés :', error);
-    throw error;
-  }
+  // Clé fixe pour des tests 
+  const secret = "SECRET_KEY_FOR_TESTING_123456789";
+  console.log('Clé fixe générée pour les tests:', secret);
+  return { privateKey: secret, publicKey: secret };
 };
 
 // Exportation de clé publique
 export const exportPublicKey = async (publicKey) => {
-  console.log('Clé publique exportée (simplifiée)');
+  console.log('Clé publique exportée:', publicKey);
   return publicKey;
 };
 
 // Importation de clé publique
 export const importPublicKey = async (key) => {
-  console.log('Clé publique importée (simplifiée)');
+  console.log('Clé publique importée:', key);
   return key;
 };
 
 // Chiffrement d'un message
 export const encryptMessage = async (publicKey, message) => {
   try {
-    console.log('Chiffrement avec clé (simplifiée)');
+    console.log('Chiffrement du message:', message);
+    console.log('Avec la clé publique:', publicKey);
+    
     const encrypted = CryptoJS.AES.encrypt(message, publicKey).toString();
-    console.log('Message chiffré (simplifié)');
+    console.log('Message chiffré:', encrypted.substring(0, 30) + '...');
     return encrypted;
   } catch (error) {
-    console.error('Erreur lors du chiffrement du message :', error);
+    console.error('Erreur lors du chiffrement du message:', error);
     throw error;
   }
 };
@@ -47,19 +39,24 @@ export const encryptMessage = async (publicKey, message) => {
 // Déchiffrement d'un message
 export const decryptMessage = async (privateKey, encryptedMessage) => {
   try {
-    console.log('Déchiffrement avec clé (simplifiée)');
+    console.log('====== DÉCHIFFREMENT ======');
+    console.log('Déchiffrement avec clé privée:', privateKey);
+    console.log('Message à déchiffrer:', encryptedMessage);
     
     const bytes = CryptoJS.AES.decrypt(encryptedMessage, privateKey);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     
+    console.log('Résultat du déchiffrement:', decrypted);
+    console.log('==========================');
+    
     if (!decrypted) {
+      console.error('Résultat de déchiffrement vide');
       throw new Error("Résultat de déchiffrement vide");
     }
     
-    console.log('Message déchiffré (simplifié)');
     return decrypted;
   } catch (error) {
-    console.error('Erreur lors du déchiffrement :', error);
+    console.error('Erreur lors du déchiffrement:', error);
     return '[Erreur: ' + error.message + ']';
   }
 };

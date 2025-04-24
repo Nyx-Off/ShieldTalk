@@ -101,20 +101,7 @@ io.on('connection', (socket) => {
   // Transmission des messages
   socket.on('message', (data) => {
     console.log(`Message de ${data.from} à ${data.to}`);
-    
-    try {
-      // Vérifier le format du message
-      const jsonCheck = JSON.parse(data.content);
-      if (!jsonCheck.message || !jsonCheck.sessionKey) {
-        console.log("ERREUR: Format de message invalide", data.content.substring(0, 50));
-      } else {
-        console.log('Format de message correct:', Object.keys(jsonCheck).join(', '));
-      }
-    } catch (e) {
-      console.log("ERREUR: Le message n'est pas au format JSON valide");
-    }
-    
-    console.log('Contenu du message (chiffré):', data.content?.substring(0, 50) + '...');
+    console.log('Contenu du message (chiffré):', data.content?.substring(0, 30) + '...');
     
     // Vérifier si le destinataire existe
     if (!users[data.to]) {
