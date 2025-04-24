@@ -15,7 +15,9 @@ const Chat = () => {
   const [keyPair, setKeyPair] = useState(null);
   const [initialized, setInitialized] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected'
   const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
 
   // Initialisation des clés et de la connexion socket
   useEffect(() => {
@@ -38,18 +40,39 @@ const Chat = () => {
         console.log("Clés définies dans l'état");
         
         // Connexion au serveur
-        const newSocket = io();
+        setConnectionStatus('connecting');
+        const newSocket = io({
+          reconnection: true,
+          reconnectionAttempts: 10,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 10000
+        });
+        
+        socketRef.current = newSocket;
         setSocket(newSocket);
         
         newSocket.on('connect', () => {
           console.log('Connecté au serveur, socketId:', newSocket.id);
           setSocketConnected(true);
+          setConnectionStatus('connected');
           setInitialized(true);
+          
+          // Si l'utilisateur était déjà connecté, ré-enregistrer
+          if (usernameSet && username) {
+            reregisterUser(newSocket, keys, username);
+          }
         });
         
         newSocket.on('disconnect', () => {
           console.log('Déconnecté du serveur');
           setSocketConnected(false);
+          setConnectionStatus('disconnected');
+        });
+        
+        newSocket.on('connect_error', (err) => {
+          console.log('Erreur de connexion:', err);
+          setConnectionStatus('disconnected');
         });
         
         newSocket.on('message', (data) => {
@@ -79,16 +102,39 @@ const Chat = () => {
           });
         });
         
+        // Ping périodique pour maintenir la connexion
+        const pingInterval = setInterval(() => {
+          if (newSocket.connected) {
+            newSocket.emit('ping');
+          }
+        }, 30000);
+        
         return () => {
+          clearInterval(pingInterval);
           newSocket.disconnect();
         };
       } catch (err) {
         console.error('Erreur d\'initialisation :', err);
+        setConnectionStatus('disconnected');
       }
     };
     
     init();
   }, [loading]);
+  
+  // Fonction pour réenregistrer l'utilisateur après une reconnexion
+  const reregisterUser = async (socket, keys, username) => {
+    try {
+      const publicKeyExported = await exportPublicKey(keys.publicKey);
+      socket.emit('register_user', { 
+        username, 
+        publicKey: publicKeyExported 
+      });
+      console.log('Utilisateur réenregistré après reconnexion:', username);
+    } catch (err) {
+      console.error('Erreur lors du réenregistrement:', err);
+    }
+  };
 
   // Gestion des messages entrants
   const handleIncomingMessage = async (data) => {
@@ -104,7 +150,7 @@ const Chat = () => {
           decryptedContent = await decryptMessage(keyPair.privateKey, data.content);
         } catch (err) {
           console.error('Erreur de déchiffrement, utilisation du contenu brut:', err);
-          decryptedContent = data.content;
+          decryptedContent = "Impossible de déchiffrer le message";
         }
         
         console.log('Message déchiffré:', decryptedContent);
@@ -115,7 +161,7 @@ const Chat = () => {
             from: data.from,
             to: data.to,
             content: decryptedContent,
-            timestamp: new Date(),
+            timestamp: data.timestamp || new Date(),
             incoming: true
           }
         ]);
@@ -128,8 +174,8 @@ const Chat = () => {
           {
             from: data.from,
             to: data.to,
-            content: data.localContent || data.content, // Contenu non chiffré pour l'affichage
-            timestamp: new Date(),
+            content: data.localContent || data.content,
+            timestamp: data.timestamp || new Date(),
             incoming: false
           }
         ]);
@@ -148,13 +194,13 @@ const Chat = () => {
   const handleUsernameSubmit = async (e) => {
     e.preventDefault();
     
-    if (username.trim() && socket && keyPair) {
+    if (username.trim() && socketConnected && keyPair) {
       console.log('Enregistrement de l\'utilisateur:', username);
       try {
         const publicKeyExported = await exportPublicKey(keyPair.publicKey);
         console.log('Clé publique exportée:', publicKeyExported);
         
-        socket.emit('register_user', { 
+        socketRef.current.emit('register_user', { 
           username, 
           publicKey: publicKeyExported 
         });
@@ -166,7 +212,7 @@ const Chat = () => {
     } else {
       console.warn('Impossible d\'enregistrer l\'utilisateur:', {
         usernameProvided: !!username.trim(),
-        socketConnected: !!socket,
+        socketConnected,
         keyPairGenerated: !!keyPair
       });
     }
@@ -176,7 +222,7 @@ const Chat = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (inputMessage.trim() && selectedUser && socket) {
+    if (inputMessage.trim() && selectedUser && socketConnected) {
       console.log(`Envoi d'un message à ${selectedUser}: ${inputMessage}`);
       
       try {
@@ -195,9 +241,9 @@ const Chat = () => {
         };
         
         console.log('Émission du message via WebSocket');
-        socket.emit('message', messageData);
+        socketRef.current.emit('message', messageData);
         
-        // Ajouter le message à la liste des messages immédiatement
+        // Ajouter le message à la liste des messages immédiatement pour une UX réactive
         setMessages(prevMessages => [
           ...prevMessages,
           {
@@ -217,7 +263,7 @@ const Chat = () => {
       console.warn('Impossible d\'envoyer le message:', {
         messageProvided: !!inputMessage.trim(),
         userSelected: !!selectedUser,
-        socketConnected: !!socket
+        socketConnected
       });
     }
   };
@@ -245,12 +291,16 @@ const Chat = () => {
           />
           <button 
             type="submit" 
-            disabled={!socketConnected}
+            disabled={connectionStatus !== 'connected'}
           >
-            {socketConnected ? "Commencer à discuter" : "Connexion en cours..."}
+            {connectionStatus === 'connected' ? "Commencer à discuter" : "Connexion en cours..."}
           </button>
         </form>
-        {!socketConnected && <p className="error">Connexion au serveur en cours...</p>}
+        {connectionStatus !== 'connected' && (
+          <p className="connection-status">
+            {connectionStatus === 'connecting' ? 'Connexion au serveur en cours...' : 'Déconnecté du serveur. Reconnexion...'}
+          </p>
+        )}
       </div>
     );
   }
@@ -258,6 +308,10 @@ const Chat = () => {
   return (
     <div className="chat-container">
       <div className="sidebar">
+        <div className="user-info">
+          <span>Connecté en tant que <strong>{username}</strong></span>
+          <span className={`connection-dot ${socketConnected ? 'connected' : 'disconnected'}`}></span>
+        </div>
         <h2>Utilisateurs ({Object.keys(users).filter(user => user !== username).length})</h2>
         <ul className="user-list">
           {Object.keys(users).filter(user => user !== username).length === 0 ? (
@@ -288,7 +342,13 @@ const Chat = () => {
             .map((msg, index) => (
               <div key={index} className={`message ${msg.from === username ? 'outgoing' : 'incoming'}`}>
                 <div className="content">{msg.content}</div>
-                <div className="timestamp">{new Date(msg.timestamp).toLocaleTimeString()}</div>
+                <div className="timestamp">
+                  {typeof msg.timestamp === 'string' 
+                    ? new Date(msg.timestamp).toLocaleTimeString() 
+                    : (msg.timestamp instanceof Date 
+                      ? msg.timestamp.toLocaleTimeString() 
+                      : new Date().toLocaleTimeString())}
+                </div>
               </div>
             ))
           }
@@ -308,10 +368,21 @@ const Chat = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder={selectedUser ? "Tapez votre message..." : "Sélectionnez d'abord un utilisateur"}
-            disabled={!selectedUser}
+            disabled={!selectedUser || !socketConnected}
           />
-          <button type="submit" disabled={!selectedUser || !inputMessage.trim()}>Envoyer</button>
+          <button 
+            type="submit" 
+            disabled={!selectedUser || !inputMessage.trim() || !socketConnected}
+          >
+            Envoyer
+          </button>
         </form>
+        
+        {!socketConnected && (
+          <div className="connection-warning">
+            Connexion perdue au serveur. Tentative de reconnexion...
+          </div>
+        )}
       </div>
     </div>
   );

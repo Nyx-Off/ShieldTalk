@@ -21,6 +21,8 @@ const io = socketIo(server, {
 
 // Stockage en mémoire des utilisateurs et de leurs clés publiques
 const users = {};
+// Map des socket IDs aux noms d'utilisateurs
+const socketToUser = {};
 
 // Routes de base
 app.get('/api/health', (req, res) => {
@@ -32,15 +34,35 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
+// Afficher les utilisateurs actifs
+const logActiveUsers = () => {
+  console.log('======= UTILISATEURS ACTIFS =======');
+  Object.entries(users).forEach(([username, userData]) => {
+    console.log(`${username}: Socket ID = ${userData.socketId}`);
+  });
+  console.log('===================================');
+};
+
 // Gestion des websockets
 io.on('connection', (socket) => {
   console.log('Un utilisateur s\'est connecté', socket.id);
   
   // Enregistrement d'un nouvel utilisateur
   socket.on('register_user', (data) => {
-    console.log('Enregistrement utilisateur:', data.username);
+    console.log('Enregistrement utilisateur:', data.username, 'avec socketId:', socket.id);
     
     const { username, publicKey } = data;
+    
+    // Si cet utilisateur existait déjà, nettoyons l'ancienne entrée
+    if (users[username] && users[username].socketId !== socket.id) {
+      const oldSocketId = users[username].socketId;
+      console.log(`Utilisateur ${username} existait déjà avec socketId ${oldSocketId}, mise à jour vers ${socket.id}`);
+      
+      // Suppression de l'ancienne association socket-utilisateur
+      if (socketToUser[oldSocketId] === username) {
+        delete socketToUser[oldSocketId];
+      }
+    }
     
     // Stockage des infos utilisateur
     users[username] = {
@@ -48,7 +70,10 @@ io.on('connection', (socket) => {
       publicKey: publicKey
     };
     
-    // Associer le socket à un username
+    // Associer le socket ID à un nom d'utilisateur
+    socketToUser[socket.id] = username;
+    
+    // Associer le socket à un username (pour Socket.IO)
     socket.username = username;
     
     // Informer les autres utilisateurs
@@ -65,7 +90,7 @@ io.on('connection', (socket) => {
     console.log('Liste des utilisateurs:', Object.keys(userList));
     socket.emit('user_list', userList);
     
-    console.log(`Utilisateur enregistré: ${username}`);
+    logActiveUsers();
   });
   
   // Transmission des messages
@@ -83,25 +108,54 @@ io.on('connection', (socket) => {
     const targetSocketId = users[data.to]?.socketId;
     if (targetSocketId) {
       console.log(`Envoi du message à ${data.to} (socketId: ${targetSocketId})`);
-      io.to(targetSocketId).emit('message', data);
+      
+      // Diffuser le message en direct au destinataire
+      io.to(targetSocketId).emit('message', {
+        from: data.from,
+        to: data.to,
+        content: data.content,
+        timestamp: data.timestamp
+      });
+      
+      console.log(`Message envoyé au socket ${targetSocketId}`);
     } else {
       console.log(`SocketId non trouvé pour ${data.to}`);
     }
     
     // Réfléchir le message à l'expéditeur pour confirmation
-    console.log(`Réflexion du message à l'expéditeur ${data.from}`);
-    socket.emit('message', data);
+    console.log(`Réflexion du message à l'expéditeur ${data.from} (socketId: ${socket.id})`);
+    socket.emit('message', {
+      from: data.from,
+      to: data.to,
+      content: data.content,
+      localContent: data.localContent,
+      timestamp: data.timestamp
+    });
   });
   
   // Déconnexion
   socket.on('disconnect', () => {
-    if (socket.username && users[socket.username]) {
-      delete users[socket.username];
-      io.emit('user_left', socket.username);
-      console.log(`Utilisateur déconnecté: ${socket.username}`);
+    const username = socketToUser[socket.id];
+    
+    if (username) {
+      console.log(`Utilisateur déconnecté: ${username} (socketId: ${socket.id})`);
+      
+      // Supprimer l'utilisateur
+      delete users[username];
+      delete socketToUser[socket.id];
+      
+      // Notifier les autres utilisateurs
+      io.emit('user_left', username);
+      
+      logActiveUsers();
     } else {
-      console.log('Un utilisateur anonyme s\'est déconnecté');
+      console.log(`Socket déconnecté sans utilisateur associé: ${socket.id}`);
     }
+  });
+  
+  // Ping pour garder la connexion active
+  socket.on('ping', () => {
+    socket.emit('pong');
   });
 });
 
