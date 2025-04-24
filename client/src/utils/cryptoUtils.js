@@ -33,29 +33,65 @@ export const importPublicKey = async (key) => {
   return key;
 };
 
-// Chiffrement d'un message
+// Chiffrement d'un message avec la clé publique du destinataire
 export const encryptMessage = async (publicKey, message) => {
   try {
-    // Utiliser la clé publique comme clé de chiffrement (simulation)
-    console.log('Chiffrement avec la clé:', publicKey);
-    const encrypted = CryptoJS.AES.encrypt(message, publicKey).toString();
-    console.log('Message chiffré:', encrypted.substring(0, 20) + '...');
-    return encrypted;
+    // Générer une clé de session (une clé AES unique pour ce message)
+    const sessionKey = CryptoJS.lib.WordArray.random(16).toString();
+    
+    // Chiffrer le message avec la clé de session
+    const encryptedMessage = CryptoJS.AES.encrypt(message, sessionKey).toString();
+    
+    // Chiffrer la clé de session avec la clé publique (simulation)
+    // Dans un vrai système, on utiliserait RSA ou ECDH, mais ici on simule
+    const encryptedSessionKey = CryptoJS.AES.encrypt(sessionKey, publicKey).toString();
+    
+    // Combiner les deux éléments chiffrés en un seul message
+    const fullEncrypted = JSON.stringify({
+      message: encryptedMessage,
+      sessionKey: encryptedSessionKey
+    });
+    
+    console.log('Message chiffré avec session key:', fullEncrypted.substring(0, 30) + '...');
+    return fullEncrypted;
   } catch (error) {
     console.error('Erreur lors du chiffrement du message :', error);
     throw error;
   }
 };
 
-// Déchiffrement d'un message
-export const decryptMessage = async (privateKey, encryptedMessage) => {
+// Déchiffrement d'un message avec la clé privée du destinataire
+export const decryptMessage = async (privateKey, encryptedData) => {
   try {
-    console.log('Déchiffrement avec clé privée:', privateKey);
-    console.log('Message à déchiffrer:', encryptedMessage.substring(0, 20) + '...');
+    console.log('Déchiffrement avec clé privée:', privateKey.substring(0, 10) + '...');
+    console.log('Message à déchiffrer:', encryptedData.substring(0, 30) + '...');
     
-    // Déchiffrement du message avec CryptoJS
-    const bytes = CryptoJS.AES.decrypt(encryptedMessage, privateKey);
-    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    // Analyser les composants du message chiffré
+    let parsed;
+    try {
+      parsed = JSON.parse(encryptedData);
+    } catch (err) {
+      console.error('Format de message incorrect:', err);
+      return '[Format de message incorrect]';
+    }
+    
+    // Déchiffrer la clé de session avec la clé privée
+    const sessionKeyBytes = CryptoJS.AES.decrypt(parsed.sessionKey, privateKey);
+    const sessionKey = sessionKeyBytes.toString(CryptoJS.enc.Utf8);
+    
+    if (!sessionKey) {
+      console.error('Échec du déchiffrement de la clé de session');
+      return '[Erreur de déchiffrement]';
+    }
+    
+    // Déchiffrer le message avec la clé de session
+    const messageBytes = CryptoJS.AES.decrypt(parsed.message, sessionKey);
+    const decrypted = messageBytes.toString(CryptoJS.enc.Utf8);
+    
+    if (!decrypted) {
+      console.error('Échec du déchiffrement du message');
+      return '[Erreur de déchiffrement]';
+    }
     
     console.log('Message déchiffré:', decrypted);
     return decrypted;
