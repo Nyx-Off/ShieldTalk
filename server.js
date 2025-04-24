@@ -38,6 +38,8 @@ io.on('connection', (socket) => {
   
   // Enregistrement d'un nouvel utilisateur
   socket.on('register_user', (data) => {
+    console.log('Enregistrement utilisateur:', data.username);
+    
     const { username, publicKey } = data;
     
     // Stockage des infos utilisateur
@@ -59,6 +61,8 @@ io.on('connection', (socket) => {
         publicKey: userData.publicKey
       };
     }
+    
+    console.log('Liste des utilisateurs:', Object.keys(userList));
     socket.emit('user_list', userList);
     
     console.log(`Utilisateur enregistré: ${username}`);
@@ -67,14 +71,25 @@ io.on('connection', (socket) => {
   // Transmission des messages
   socket.on('message', (data) => {
     console.log(`Message de ${data.from} à ${data.to}`);
+    console.log('Contenu du message (chiffré):', data.content?.substring(0, 20) + '...');
+    
+    // Vérifier si le destinataire existe
+    if (!users[data.to]) {
+      console.log(`Utilisateur destinataire ${data.to} non trouvé`);
+      return;
+    }
     
     // Transmettre le message uniquement au destinataire
     const targetSocketId = users[data.to]?.socketId;
     if (targetSocketId) {
+      console.log(`Envoi du message à ${data.to} (socketId: ${targetSocketId})`);
       io.to(targetSocketId).emit('message', data);
+    } else {
+      console.log(`SocketId non trouvé pour ${data.to}`);
     }
     
     // Réfléchir le message à l'expéditeur pour confirmation
+    console.log(`Réflexion du message à l'expéditeur ${data.from}`);
     socket.emit('message', data);
   });
   

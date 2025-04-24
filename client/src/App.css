@@ -61,6 +61,12 @@ footer {
   cursor: pointer;
 }
 
+.user-list li.no-users {
+  color: #999;
+  font-style: italic;
+  cursor: default;
+}
+
 .user-list li:hover {
   background-color: #f0f0f0;
 }
@@ -88,6 +94,13 @@ footer {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.empty-chat {
+  text-align: center;
+  margin-top: 2rem;
+  color: #999;
+  font-style: italic;
 }
 
 .message {
@@ -174,6 +187,11 @@ footer {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.username-form button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 .loading, .error {
